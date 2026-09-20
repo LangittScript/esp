@@ -1,254 +1,101 @@
 local Players = game:GetService("Players")
-local UIS = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
 
-local player = Players.LocalPlayer
+-- Replace with your Roblox UserId
+local OWNER_ID = 8321894484
 
--- SETTINGS
-local flySpeed = 50
-local flying = false
-local espEnabled = true
-
-local character
-local humanoid
-local root
-
-local function loadCharacter(char)
-	character = char
-	humanoid = char:WaitForChild("Humanoid")
-	root = char:WaitForChild("HumanoidRootPart")
+if LocalPlayer.UserId ~= OWNER_ID then
+	return
 end
 
-loadCharacter(player.Character or player.CharacterAdded:Wait())
+local Rayfield = loadstring(game:HttpGet(
+	"https://sirius.menu/rayfield"
+))()
 
-player.CharacterAdded:Connect(function(char)
-	loadCharacter(char)
-end)
+local Window = Rayfield:CreateWindow({
+	Name = "Owner Tools",
+	LoadingTitle = "Owner Tools",
+	LoadingSubtitle = "Player Highlighter",
+	ConfigurationSaving = {
+		Enabled = false
+	}
+})
 
--- GUI
-local gui = Instance.new("ScreenGui")
-gui.Name = "FlyESP"
-gui.ResetOnSpawn = false
-gui.Parent = player:WaitForChild("PlayerGui")
+local Tab = Window:CreateTab("Player Tools", 4483362458)
 
-local main = Instance.new("Frame")
-main.Size = UDim2.fromOffset(240, 190)
-main.Position = UDim2.new(0.5, -120, 0.5, -95)
-main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-main.Parent = gui
+local selectedPlayer
 
-Instance.new("UICorner", main).CornerRadius = UDim.new(0, 10)
+local function getPlayerNames()
+	local names = {}
 
-local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 35)
-title.BackgroundTransparency = 1
-title.Text = "Fly / ESP"
-title.TextColor3 = Color3.new(1,1,1)
-title.TextSize = 20
-title.Font = Enum.Font.GothamBold
-title.Parent = main
-
-local flyButton = Instance.new("TextButton")
-flyButton.Size = UDim2.new(1, -20, 0, 40)
-flyButton.Position = UDim2.fromOffset(10, 40)
-flyButton.Text = "FLY: OFF"
-flyButton.TextColor3 = Color3.new(1,1,1)
-flyButton.BackgroundColor3 = Color3.fromRGB(180,50,50)
-flyButton.Parent = main
-
-Instance.new("UICorner", flyButton).CornerRadius = UDim.new(0, 6)
-
-local speedBox = Instance.new("TextBox")
-speedBox.Size = UDim2.new(1, -20, 0, 35)
-speedBox.Position = UDim2.fromOffset(10, 85)
-speedBox.Text = "50"
-speedBox.PlaceholderText = "Fly Speed"
-speedBox.TextColor3 = Color3.new(1,1,1)
-speedBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
-speedBox.Parent = main
-
-Instance.new("UICorner", speedBox).CornerRadius = UDim.new(0, 6)
-
-local espButton = Instance.new("TextButton")
-espButton.Size = UDim2.new(1, -20, 0, 40)
-espButton.Position = UDim2.fromOffset(10, 130)
-espButton.Text = "ESP: ON"
-espButton.TextColor3 = Color3.new(1,1,1)
-espButton.BackgroundColor3 = Color3.fromRGB(40,170,70)
-espButton.Parent = main
-
-Instance.new("UICorner", espButton).CornerRadius = UDim.new(0, 6)
-
--- FLY
-local flyConnection
-
-local function stopFly()
-	flying = false
-
-	if flyConnection then
-		flyConnection:Disconnect()
-		flyConnection = nil
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer then
+			table.insert(names, player.Name)
+		end
 	end
 
-	if humanoid then
-		humanoid.PlatformStand = false
-	end
-
-	if root then
-		root.AssemblyLinearVelocity = Vector3.zero
-	end
-
-	flyButton.Text = "FLY: OFF"
-	flyButton.BackgroundColor3 = Color3.fromRGB(180,50,50)
+	return names
 end
 
-local function startFly()
-	if not root or not humanoid then
-		return
+local Dropdown = Tab:CreateDropdown({
+	Name = "Select Player",
+	Options = getPlayerNames(),
+	CurrentOption = {},
+	MultipleOptions = false,
+
+	Callback = function(option)
+		selectedPlayer = Players:FindFirstChild(option[1])
 	end
+})
 
-	flying = true
-	humanoid.PlatformStand = true
+Tab:CreateButton({
+	Name = "Highlight Player",
 
-	flyButton.Text = "FLY: ON"
-	flyButton.BackgroundColor3 = Color3.fromRGB(40,170,70)
-
-	flyConnection = RunService.RenderStepped:Connect(function()
-		if not flying or not root or not root.Parent then
+	Callback = function()
+		if not selectedPlayer then
+			Rayfield:Notify({
+				Title = "Owner Tools",
+				Content = "Select a player first.",
+				Duration = 3
+			})
 			return
 		end
 
-		local camera = workspace.CurrentCamera
-		local direction = Vector3.zero
+		local character = selectedPlayer.Character
+		if not character then return end
 
-		if UIS:IsKeyDown(Enum.KeyCode.W) then
-			direction += camera.CFrame.LookVector
-		end
-
-		if UIS:IsKeyDown(Enum.KeyCode.S) then
-			direction -= camera.CFrame.LookVector
-		end
-
-		if UIS:IsKeyDown(Enum.KeyCode.A) then
-			direction -= camera.CFrame.RightVector
-		end
-
-		if UIS:IsKeyDown(Enum.KeyCode.D) then
-			direction += camera.CFrame.RightVector
-		end
-
-		if UIS:IsKeyDown(Enum.KeyCode.Space) then
-			direction += Vector3.yAxis
-		end
-
-		if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
-			direction -= Vector3.yAxis
-		end
-
-		if direction.Magnitude > 0 then
-			direction = direction.Unit
-		end
-
-		root.AssemblyLinearVelocity = direction * flySpeed
-	end)
-end
-
-flyButton.MouseButton1Click:Connect(function()
-	if flying then
-		stopFly()
-	else
-		startFly()
-	end
-end)
-
-speedBox.FocusLost:Connect(function()
-	local value = tonumber(speedBox.Text)
-
-	if value then
-		flySpeed = math.clamp(value, 1, 500)
-	else
-		speedBox.Text = tostring(flySpeed)
-	end
-end)
-
--- ESP
-local function addESP(otherPlayer)
-	if otherPlayer == player then
-		return
-	end
-
-	local function apply(character)
-		if not espEnabled then
-			return
-		end
-
-		local old = character:FindFirstChild("MyESP")
-		if old then
-			old:Destroy()
+		local oldHighlight = character:FindFirstChild("OwnerHighlight")
+		if oldHighlight then
+			oldHighlight:Destroy()
 		end
 
 		local highlight = Instance.new("Highlight")
-		highlight.Name = "MyESP"
-		highlight.Adornee = character
-		highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		highlight.Name = "OwnerHighlight"
+		highlight.FillColor = Color3.fromRGB(255, 0, 0)
+		highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
 		highlight.FillTransparency = 0.5
 		highlight.OutlineTransparency = 0
-
-		-- GREEN = TEAM
-		-- RED = ENEMY
-		if player.Team ~= nil and otherPlayer.Team == player.Team then
-			highlight.FillColor = Color3.fromRGB(0,255,0)
-			highlight.OutlineColor = Color3.fromRGB(0,255,0)
-		else
-			highlight.FillColor = Color3.fromRGB(255,0,0)
-			highlight.OutlineColor = Color3.fromRGB(255,0,0)
-		end
-
 		highlight.Parent = character
 	end
+})
 
-	if otherPlayer.Character then
-		apply(otherPlayer.Character)
-	end
+Tab:CreateButton({
+	Name = "Remove Highlight",
 
-	otherPlayer.CharacterAdded:Connect(function(char)
-		task.wait(0.2)
-		apply(char)
-	end)
-end
+	Callback = function()
+		if not selectedPlayer or not selectedPlayer.Character then
+			return
+		end
 
-local function removeESP()
-	for _, otherPlayer in ipairs(Players:GetPlayers()) do
-		if otherPlayer.Character then
-			local esp = otherPlayer.Character:FindFirstChild("MyESP")
-			if esp then
-				esp:Destroy()
-			end
+		local highlight = selectedPlayer.Character:FindFirstChild("OwnerHighlight")
+		if highlight then
+			highlight:Destroy()
 		end
 	end
-end
+})
 
-for _, otherPlayer in ipairs(Players:GetPlayers()) do
-	addESP(otherPlayer)
-end
-
-Players.PlayerAdded:Connect(function(otherPlayer)
-	addESP(otherPlayer)
-end)
-
-espButton.MouseButton1Click:Connect(function()
-	espEnabled = not espEnabled
-
-	if espEnabled then
-		espButton.Text = "ESP: ON"
-		espButton.BackgroundColor3 = Color3.fromRGB(40,170,70)
-
-		for _, otherPlayer in ipairs(Players:GetPlayers()) do
-			addESP(otherPlayer)
-		end
-	else
-		espButton.Text = "ESP: OFF"
-		espButton.BackgroundColor3 = Color3.fromRGB(180,50,50)
-		removeESP()
-	end
+Players.PlayerAdded:Connect(function()
+	Dropdown:Set({
+		Options = getPlayerNames()
+	})
 end)
