@@ -1,12 +1,39 @@
+
+--// OWNER COMBAT TOOLS
+--// LocalScript -> StarterPlayerScripts
+
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
--- Replace with your Roblox UserId
-local OWNER_ID = 8321894484
+--==================================================
+-- CONFIG
+--==================================================
 
-if LocalPlayer.UserId ~= OWNER_ID then
+local OWNER_USER_ID = 8321894484 -- YOUR USER ID
+
+if LocalPlayer.UserId ~= OWNER_USER_ID then
 	return
 end
+
+local EnemyColor = Color3.fromRGB(255, 60, 60)
+local TeamColor = Color3.fromRGB(60, 150, 255)
+
+local ESPEnabled = false
+local TeamESPEnabled = false
+local AimAssistEnabled = false
+
+local AimFOV = 150
+local AimSmoothness = 0.15
+local AimPart = "Head"
+
+local Highlights = {}
+
+--==================================================
+-- RAYFIELD
+--==================================================
 
 local Rayfield = loadstring(game:HttpGet(
 	"https://sirius.menu/rayfield"
@@ -15,87 +42,283 @@ local Rayfield = loadstring(game:HttpGet(
 local Window = Rayfield:CreateWindow({
 	Name = "Owner Tools",
 	LoadingTitle = "Owner Tools",
-	LoadingSubtitle = "Player Highlighter",
+	LoadingSubtitle = "ESP / Aim Assist",
+
 	ConfigurationSaving = {
 		Enabled = false
 	}
 })
 
-local Tab = Window:CreateTab("Player Tools", 4483362458)
+local ESPTab = Window:CreateTab("ESP")
+local AimTab = Window:CreateTab("Aim Assist")
 
-local selectedPlayer
+--==================================================
+-- TEAM CHECK
+--==================================================
 
-local function getPlayerNames()
-	local names = {}
-
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer then
-			table.insert(names, player.Name)
-		end
+local function IsEnemy(player)
+	if not player.Team or not LocalPlayer.Team then
+		return true
 	end
 
-	return names
+	return player.Team ~= LocalPlayer.Team
 end
 
-local Dropdown = Tab:CreateDropdown({
-	Name = "Select Player",
-	Options = getPlayerNames(),
-	CurrentOption = {},
-	MultipleOptions = false,
+--==================================================
+-- ESP
+--==================================================
 
-	Callback = function(option)
-		selectedPlayer = Players:FindFirstChild(option[1])
+local function RemoveHighlight(player)
+	if Highlights[player] then
+		Highlights[player]:Destroy()
+		Highlights[player] = nil
 	end
-})
+end
 
-Tab:CreateButton({
-	Name = "Highlight Player",
+local function UpdateHighlight(player)
+	if player == LocalPlayer then
+		return
+	end
 
-	Callback = function()
-		if not selectedPlayer then
-			Rayfield:Notify({
-				Title = "Owner Tools",
-				Content = "Select a player first.",
-				Duration = 3
-			})
-			return
-		end
+	local character = player.Character
 
-		local character = selectedPlayer.Character
-		if not character then return end
+	if not character then
+		RemoveHighlight(player)
+		return
+	end
 
-		local oldHighlight = character:FindFirstChild("OwnerHighlight")
-		if oldHighlight then
-			oldHighlight:Destroy()
-		end
+	local isEnemy = IsEnemy(player)
 
-		local highlight = Instance.new("Highlight")
-		highlight.Name = "OwnerHighlight"
-		highlight.FillColor = Color3.fromRGB(255, 0, 0)
-		highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-		highlight.FillTransparency = 0.5
+	if isEnemy and not ESPEnabled then
+		RemoveHighlight(player)
+		return
+	end
+
+	if not isEnemy and not TeamESPEnabled then
+		RemoveHighlight(player)
+		return
+	end
+
+	local highlight = Highlights[player]
+
+	if not highlight then
+		highlight = Instance.new("Highlight")
+		highlight.Name = "OwnerESP"
+		highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		highlight.FillTransparency = 0.55
 		highlight.OutlineTransparency = 0
 		highlight.Parent = character
+
+		Highlights[player] = highlight
 	end
-})
 
-Tab:CreateButton({
-	Name = "Remove Highlight",
-
-	Callback = function()
-		if not selectedPlayer or not selectedPlayer.Character then
-			return
-		end
-
-		local highlight = selectedPlayer.Character:FindFirstChild("OwnerHighlight")
-		if highlight then
-			highlight:Destroy()
-		end
+	-- Keep it attached to the current character
+	if highlight.Parent ~= character then
+		highlight.Parent = character
 	end
-})
 
-Players.PlayerAdded:Connect(function()
-	Dropdown:Set({
-		Options = getPlayerNames()
-	})
+	if isEnemy then
+		highlight.FillColor = EnemyColor
+		highlight.OutlineColor = Color3.new(1, 1, 1)
+	else
+		highlight.FillColor = TeamColor
+		highlight.OutlineColor = Color3.new(1, 1, 1)
+	end
+end
+
+local function UpdateAllESP()
+	for _, player in ipairs(Players:GetPlayers()) do
+		UpdateHighlight(player)
+	end
+end
+
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function()
+		task.wait(0.2)
+		UpdateHighlight(player)
+	end)
 end)
+
+Players.PlayerRemoving:Connect(function(player)
+	RemoveHighlight(player)
+end)
+
+for _, player in ipairs(Players:GetPlayers()) do
+	if player ~= LocalPlayer then
+		player.CharacterAdded:Connect(function()
+			task.wait(0.2)
+			UpdateHighlight(player)
+		end)
+	end
+end
+
+--==================================================
+-- ESP UI
+--==================================================
+
+ESPTab:CreateToggle({
+	Name = "Enemy ESP",
+	CurrentValue = false,
+
+	Callback = function(value)
+		ESPEnabled = value
+		UpdateAllESP()
+	end
+})
+
+ESPTab:CreateToggle({
+	Name = "Team ESP",
+	CurrentValue = false,
+
+	Callback = function(value)
+		TeamESPEnabled = value
+		UpdateAllESP()
+	end
+})
+
+ESPTab:CreateColorPicker({
+	Name = "Enemy Color",
+	Color = EnemyColor,
+
+	Callback = function(color)
+		EnemyColor = color
+		UpdateAllESP()
+	end
+})
+
+ESPTab:CreateColorPicker({
+	Name = "Team Color",
+	Color = TeamColor,
+
+	Callback = function(color)
+		TeamColor = color
+		UpdateAllESP()
+	end
+})
+
+--==================================================
+-- AIM ASSIST
+--==================================================
+
+local function GetClosestEnemy()
+	local closestPlayer = nil
+	local closestDistance = AimFOV
+
+	local screenCenter = Vector2.new(
+		Camera.ViewportSize.X / 2,
+		Camera.ViewportSize.Y / 2
+	)
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and IsEnemy(player) then
+
+			local character = player.Character
+			if not character then
+				continue
+			end
+
+			local humanoid = character:FindFirstChildOfClass("Humanoid")
+			local targetPart = character:FindFirstChild(AimPart)
+
+			if not humanoid or humanoid.Health <= 0 or not targetPart then
+				continue
+			end
+
+			local screenPosition, onScreen =
+				Camera:WorldToViewportPoint(targetPart.Position)
+
+			if not onScreen then
+				continue
+			end
+
+			local distance = (
+				Vector2.new(screenPosition.X, screenPosition.Y)
+				- screenCenter
+			).Magnitude
+
+			if distance < closestDistance then
+				closestDistance = distance
+				closestPlayer = targetPart
+			end
+		end
+	end
+
+	return closestPlayer
+end
+
+RunService.RenderStepped:Connect(function()
+	if not AimAssistEnabled then
+		return
+	end
+
+	local target = GetClosestEnemy()
+
+	if not target then
+		return
+	end
+
+	local cameraPosition = Camera.CFrame.Position
+
+	local targetCFrame = CFrame.lookAt(
+		cameraPosition,
+		target.Position
+	)
+
+	Camera.CFrame = Camera.CFrame:Lerp(
+		targetCFrame,
+		AimSmoothness
+	)
+end)
+
+--==================================================
+-- AIM UI
+--==================================================
+
+AimTab:CreateToggle({
+	Name = "Aim Assist",
+	CurrentValue = false,
+
+	Callback = function(value)
+		AimAssistEnabled = value
+	end
+})
+
+AimTab:CreateSlider({
+	Name = "Aim FOV",
+	Range = {50, 500},
+	Increment = 10,
+	Suffix = " px",
+	CurrentValue = 150,
+
+	Callback = function(value)
+		AimFOV = value
+	end
+})
+
+AimTab:CreateSlider({
+	Name = "Aim Smoothness",
+	Range = {1, 100},
+	Increment = 1,
+	Suffix = "%",
+	CurrentValue = 15,
+
+	Callback = function(value)
+		AimSmoothness = value / 100
+	end
+})
+
+AimTab:CreateDropdown({
+	Name = "Aim Part",
+	Options = {"Head", "HumanoidRootPart", "UpperTorso"},
+	CurrentOption = {"Head"},
+
+	Callback = function(option)
+		AimPart = option[1]
+	end
+})
+
+Rayfield:Notify({
+	Title = "Owner Tools Loaded",
+	Content = "ESP and Aim Assist are ready.",
+	Duration = 5
+})
