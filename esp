@@ -1,131 +1,88 @@
---// Fly + Team/Enemy ESP
---// Place this LocalScript in StarterPlayer > StarterPlayerScripts
-
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
+local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
-local LocalPlayer = Players.LocalPlayer
+local player = Players.LocalPlayer
 
---==================================================
 -- SETTINGS
---==================================================
-
 local flySpeed = 50
 local flying = false
 local espEnabled = true
 
-local TEAM_COLOR = Color3.fromRGB(50, 255, 80)   -- Green
-local ENEMY_COLOR = Color3.fromRGB(255, 60, 60)  -- Red
-
---==================================================
--- CHARACTER
---==================================================
-
 local character
 local humanoid
-local rootPart
+local root
 
-local function setupCharacter(char)
+local function loadCharacter(char)
 	character = char
 	humanoid = char:WaitForChild("Humanoid")
-	rootPart = char:WaitForChild("HumanoidRootPart")
+	root = char:WaitForChild("HumanoidRootPart")
 end
 
-setupCharacter(LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait())
+loadCharacter(player.Character or player.CharacterAdded:Wait())
 
-LocalPlayer.CharacterAdded:Connect(function(char)
-	setupCharacter(char)
+player.CharacterAdded:Connect(function(char)
+	loadCharacter(char)
 end)
 
---==================================================
 -- GUI
---==================================================
-
 local gui = Instance.new("ScreenGui")
-gui.Name = "FlyESP_GUI"
+gui.Name = "FlyESP"
 gui.ResetOnSpawn = false
-gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+gui.Parent = player:WaitForChild("PlayerGui")
 
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 260, 0, 240)
-frame.Position = UDim2.new(0.5, -130, 0.5, -120)
-frame.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
-frame.BorderSizePixel = 0
-frame.Parent = gui
+local main = Instance.new("Frame")
+main.Size = UDim2.fromOffset(240, 190)
+main.Position = UDim2.new(0.5, -120, 0.5, -95)
+main.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+main.Parent = gui
 
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 12)
-corner.Parent = frame
+Instance.new("UICorner", main).CornerRadius = UDim.new(0, 10)
 
 local title = Instance.new("TextLabel")
-title.Size = UDim2.new(1, 0, 0, 40)
+title.Size = UDim2.new(1, 0, 0, 35)
 title.BackgroundTransparency = 1
-title.Text = "Fly + ESP"
-title.TextColor3 = Color3.new(1, 1, 1)
-title.TextSize = 21
+title.Text = "Fly / ESP"
+title.TextColor3 = Color3.new(1,1,1)
+title.TextSize = 20
 title.Font = Enum.Font.GothamBold
-title.Parent = frame
+title.Parent = main
 
--- Fly button
 local flyButton = Instance.new("TextButton")
-flyButton.Size = UDim2.new(0, 220, 0, 38)
-flyButton.Position = UDim2.new(0.5, -110, 0, 45)
-flyButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
-flyButton.Text = "Fly: OFF"
-flyButton.TextColor3 = Color3.new(1, 1, 1)
-flyButton.TextSize = 16
-flyButton.Font = Enum.Font.GothamBold
-flyButton.Parent = frame
+flyButton.Size = UDim2.new(1, -20, 0, 40)
+flyButton.Position = UDim2.fromOffset(10, 40)
+flyButton.Text = "FLY: OFF"
+flyButton.TextColor3 = Color3.new(1,1,1)
+flyButton.BackgroundColor3 = Color3.fromRGB(180,50,50)
+flyButton.Parent = main
 
-Instance.new("UICorner", flyButton).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", flyButton).CornerRadius = UDim.new(0, 6)
 
--- Speed box
 local speedBox = Instance.new("TextBox")
-speedBox.Size = UDim2.new(0, 220, 0, 38)
-speedBox.Position = UDim2.new(0.5, -110, 0, 90)
-speedBox.BackgroundColor3 = Color3.fromRGB(48, 48, 56)
-speedBox.Text = tostring(flySpeed)
+speedBox.Size = UDim2.new(1, -20, 0, 35)
+speedBox.Position = UDim2.fromOffset(10, 85)
+speedBox.Text = "50"
 speedBox.PlaceholderText = "Fly Speed"
-speedBox.TextColor3 = Color3.new(1, 1, 1)
-speedBox.TextSize = 16
-speedBox.Font = Enum.Font.Gotham
-speedBox.ClearTextOnFocus = false
-speedBox.Parent = frame
+speedBox.TextColor3 = Color3.new(1,1,1)
+speedBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
+speedBox.Parent = main
 
-Instance.new("UICorner", speedBox).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", speedBox).CornerRadius = UDim.new(0, 6)
 
--- ESP button
 local espButton = Instance.new("TextButton")
-espButton.Size = UDim2.new(0, 220, 0, 38)
-espButton.Position = UDim2.new(0.5, -110, 0, 135)
-espButton.BackgroundColor3 = Color3.fromRGB(50, 170, 80)
+espButton.Size = UDim2.new(1, -20, 0, 40)
+espButton.Position = UDim2.fromOffset(10, 130)
 espButton.Text = "ESP: ON"
-espButton.TextColor3 = Color3.new(1, 1, 1)
-espButton.TextSize = 16
-espButton.Font = Enum.Font.GothamBold
-espButton.Parent = frame
+espButton.TextColor3 = Color3.new(1,1,1)
+espButton.BackgroundColor3 = Color3.fromRGB(40,170,70)
+espButton.Parent = main
 
-Instance.new("UICorner", espButton).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", espButton).CornerRadius = UDim.new(0, 6)
 
--- Legend
-local legend = Instance.new("TextLabel")
-legend.Size = UDim2.new(1, 0, 0, 50)
-legend.Position = UDim2.new(0, 0, 0, 182)
-legend.BackgroundTransparency = 1
-legend.Text = "GREEN = TEAM     RED = ENEMY"
-legend.TextColor3 = Color3.new(1, 1, 1)
-legend.TextSize = 13
-legend.Font = Enum.Font.Gotham
-legend.Parent = frame
-
---==================================================
--- FLY SYSTEM
---==================================================
-
+-- FLY
 local flyConnection
 
-local function stopFlying()
+local function stopFly()
 	flying = false
 
 	if flyConnection then
@@ -137,70 +94,70 @@ local function stopFlying()
 		humanoid.PlatformStand = false
 	end
 
-	if rootPart then
-		rootPart.AssemblyLinearVelocity = Vector3.zero
+	if root then
+		root.AssemblyLinearVelocity = Vector3.zero
 	end
 
-	flyButton.Text = "Fly: OFF"
-	flyButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+	flyButton.Text = "FLY: OFF"
+	flyButton.BackgroundColor3 = Color3.fromRGB(180,50,50)
 end
 
-local function startFlying()
-	if not character or not humanoid or not rootPart then
+local function startFly()
+	if not root or not humanoid then
 		return
 	end
 
 	flying = true
 	humanoid.PlatformStand = true
 
-	flyButton.Text = "Fly: ON"
-	flyButton.BackgroundColor3 = Color3.fromRGB(50, 170, 80)
+	flyButton.Text = "FLY: ON"
+	flyButton.BackgroundColor3 = Color3.fromRGB(40,170,70)
 
 	flyConnection = RunService.RenderStepped:Connect(function()
-		if not flying or not rootPart or not rootPart.Parent then
+		if not flying or not root or not root.Parent then
 			return
 		end
 
 		local camera = workspace.CurrentCamera
 		local direction = Vector3.zero
 
-		if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+		if UIS:IsKeyDown(Enum.KeyCode.W) then
 			direction += camera.CFrame.LookVector
 		end
 
-		if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+		if UIS:IsKeyDown(Enum.KeyCode.S) then
 			direction -= camera.CFrame.LookVector
 		end
 
-		if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-			direction += camera.CFrame.RightVector
-		end
-
-		if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+		if UIS:IsKeyDown(Enum.KeyCode.A) then
 			direction -= camera.CFrame.RightVector
 		end
 
-		if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-			direction += Vector3.new(0, 1, 0)
+		if UIS:IsKeyDown(Enum.KeyCode.D) then
+			direction += camera.CFrame.RightVector
 		end
 
-		if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-			direction -= Vector3.new(0, 1, 0)
+		if UIS:IsKeyDown(Enum.KeyCode.Space) then
+			direction += Vector3.yAxis
+		end
+
+		if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
+			direction -= Vector3.yAxis
 		end
 
 		if direction.Magnitude > 0 then
 			direction = direction.Unit
 		end
 
-		rootPart.AssemblyLinearVelocity = direction * flySpeed
+		root.AssemblyLinearVelocity = direction * flySpeed
 	end)
 end
 
 flyButton.MouseButton1Click:Connect(function()
 	if flying then
-		stopFlying()
+		stopFly()
 	else
-		startFlying()
+		startFly()
 	end
 end)
 
@@ -209,175 +166,89 @@ speedBox.FocusLost:Connect(function()
 
 	if value then
 		flySpeed = math.clamp(value, 1, 500)
-		speedBox.Text = tostring(flySpeed)
 	else
 		speedBox.Text = tostring(flySpeed)
 	end
 end)
 
---==================================================
 -- ESP
---==================================================
-
-local espObjects = {}
-
-local function removeESP(player)
-	if espObjects[player] then
-		espObjects[player]:Destroy()
-		espObjects[player] = nil
-	end
-end
-
-local function getPlayerColor(player)
-	if LocalPlayer.Team ~= nil and player.Team == LocalPlayer.Team then
-		return TEAM_COLOR
-	end
-
-	return ENEMY_COLOR
-end
-
-local function createESP(player)
-	if player == LocalPlayer then
+local function addESP(otherPlayer)
+	if otherPlayer == player then
 		return
 	end
 
-	removeESP(player)
-
-	local function setup(character)
+	local function apply(character)
 		if not espEnabled then
 			return
 		end
 
-		local head = character:FindFirstChild("Head")
-		if not head then
-			head = character:WaitForChild("Head", 5)
-		end
-
-		if not head then
-			return
+		local old = character:FindFirstChild("MyESP")
+		if old then
+			old:Destroy()
 		end
 
 		local highlight = Instance.new("Highlight")
-		highlight.Name = "TeamEnemyESP"
+		highlight.Name = "MyESP"
 		highlight.Adornee = character
 		highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-		highlight.FillTransparency = 0.55
+		highlight.FillTransparency = 0.5
 		highlight.OutlineTransparency = 0
-		highlight.FillColor = getPlayerColor(player)
-		highlight.OutlineColor = getPlayerColor(player)
-		highlight.Parent = character
 
-		local billboard = Instance.new("BillboardGui")
-		billboard.Name = "ESP_Name"
-		billboard.Adornee = head
-		billboard.Size = UDim2.new(0, 150, 0, 30)
-		billboard.StudsOffset = Vector3.new(0, 2.5, 0)
-		billboard.AlwaysOnTop = true
-		billboard.Parent = head
-
-		local label = Instance.new("TextLabel")
-		label.Size = UDim2.new(1, 0, 1, 0)
-		label.BackgroundTransparency = 1
-		label.Text = player.DisplayName
-		label.TextColor3 = getPlayerColor(player)
-		label.TextStrokeTransparency = 0.3
-		label.TextSize = 14
-		label.Font = Enum.Font.GothamBold
-		label.Parent = billboard
-
-		espObjects[player] = highlight
-
-		-- Keep the color updated if teams change.
-		task.spawn(function()
-			while highlight.Parent and espEnabled do
-				local color = getPlayerColor(player)
-
-				highlight.FillColor = color
-				highlight.OutlineColor = color
-				label.TextColor3 = color
-
-				task.wait(0.5)
-			end
-		end)
-	end
-
-	if player.Character then
-		setup(player.Character)
-	end
-
-	player.CharacterAdded:Connect(function(character)
-		task.wait(0.2)
-
-		if espEnabled then
-			setup(character)
+		-- GREEN = TEAM
+		-- RED = ENEMY
+		if player.Team ~= nil and otherPlayer.Team == player.Team then
+			highlight.FillColor = Color3.fromRGB(0,255,0)
+			highlight.OutlineColor = Color3.fromRGB(0,255,0)
+		else
+			highlight.FillColor = Color3.fromRGB(255,0,0)
+			highlight.OutlineColor = Color3.fromRGB(255,0,0)
 		end
+
+		highlight.Parent = character
+	end
+
+	if otherPlayer.Character then
+		apply(otherPlayer.Character)
+	end
+
+	otherPlayer.CharacterAdded:Connect(function(char)
+		task.wait(0.2)
+		apply(char)
 	end)
 end
 
-local function clearAllESP()
-	for player, object in pairs(espObjects) do
-		if object then
-			object:Destroy()
-		end
-
-		espObjects[player] = nil
-	end
-
-	-- Remove any BillboardGui objects created by this script.
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer and player.Character then
-			for _, object in ipairs(player.Character:GetDescendants()) do
-				if object.Name == "ESP_Name" or object.Name == "TeamEnemyESP" then
-					object:Destroy()
-				end
+local function removeESP()
+	for _, otherPlayer in ipairs(Players:GetPlayers()) do
+		if otherPlayer.Character then
+			local esp = otherPlayer.Character:FindFirstChild("MyESP")
+			if esp then
+				esp:Destroy()
 			end
 		end
 	end
 end
 
-local function enableESP()
-	espEnabled = true
-
-	espButton.Text = "ESP: ON"
-	espButton.BackgroundColor3 = Color3.fromRGB(50, 170, 80)
-
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= LocalPlayer then
-			createESP(player)
-		end
-	end
+for _, otherPlayer in ipairs(Players:GetPlayers()) do
+	addESP(otherPlayer)
 end
 
-local function disableESP()
-	espEnabled = false
-
-	espButton.Text = "ESP: OFF"
-	espButton.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
-
-	clearAllESP()
-end
+Players.PlayerAdded:Connect(function(otherPlayer)
+	addESP(otherPlayer)
+end)
 
 espButton.MouseButton1Click:Connect(function()
+	espEnabled = not espEnabled
+
 	if espEnabled then
-		disableESP()
+		espButton.Text = "ESP: ON"
+		espButton.BackgroundColor3 = Color3.fromRGB(40,170,70)
+
+		for _, otherPlayer in ipairs(Players:GetPlayers()) do
+			addESP(otherPlayer)
+		end
 	else
-		enableESP()
+		espButton.Text = "ESP: OFF"
+		espButton.BackgroundColor3 = Color3.fromRGB(180,50,50)
+		removeESP()
 	end
 end)
-
-Players.PlayerAdded:Connect(function(player)
-	if espEnabled then
-		createESP(player)
-	end
-end)
-
-Players.PlayerRemoving:Connect(function(player)
-	removeESP(player)
-end)
-
--- Initial ESP
-for _, player in ipairs(Players:GetPlayers()) do
-	if player ~= LocalPlayer then
-		createESP(player)
-	end
-end
